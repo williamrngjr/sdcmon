@@ -640,21 +640,23 @@ for i in $SIDS; do
 
     unset STATUS
     unset HANAWARNING
+    MAINTFILE="$CLDSCRIPTS/.${i}_maintenance"
     if [ "$MODE" = "$MAINTENANCE_MODE" ]; then 
         STATUS=$STATUS_MAINT
         STATFILE="$CLDSCRIPTS/.${i}_${STATUS_MAINT}"
+	test -f $MAINTFILE || touch $MAINTFILE
   #      [ -f $STATFILE ] || echo "$MAINT_USER - activity is $MAINT_REASON " > $STATFILE 
         if egrep -q 'maintenance' "$WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt"; then
             echo "$i system is already set to maintenance. Cannot set it again to maintenance to preserve timestamp when it started to be on maintenance. Pls set it to down or productive before setting it to maintenance."
         else
             echo "$MAINT_USER - activity is $MAINT_REASON " > $STATFILE
             echo "$i system set to maintenance mode successfully by user $MAINT_USER"
-        fi
-   
-     echo "Setting $MODE mode for $i"
+        fi  
+     echo "Setting $MODE mode for $i" 
     elif [ "$MODE" = "$REMOTE_MAINTENANCE_MODE" ]; then
         STATUS=$STATUS_REMOTE_MAINT
         echo "Setting $MODE mode for $i"
+	test -f $MAINTFILE || touch $MAINTFILE
     elif [ "$MODE" = "$SERVERDOWN_MODE" ]; then
         STATUS=$STATUS_SERVERDOWN
         echo "Setting $MODE mode for $i"
