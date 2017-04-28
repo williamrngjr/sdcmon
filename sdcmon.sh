@@ -759,8 +759,8 @@ for i in $SIDS; do
     MountAndTransfer
     MountAndTransferCLD41
 done
-#CheckForEmergencyUpdate
-#CheckForUpdate
+CheckForEmergencyUpdate
+CheckForUpdate
 
 
 
