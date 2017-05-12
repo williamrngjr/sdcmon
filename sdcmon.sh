@@ -48,6 +48,8 @@ function GetStatus {
                 HANAWARNING="but shows WARNING"
                 rm -f $CLDSCRIPTS/.${SID}_* > /dev/null 2>&1
             fi
+	else
+	    STATUS=$STATUS_NOT_OKAY
         fi
     ;;
     SAPMZ)
@@ -85,6 +87,7 @@ function GetStatus {
         local INSTNUM
         local SIDADM
         local COUNT
+	local SAPDBHOST #parameter
         SIDADM=$(echo $SID | tr '[:upper:]' '[:lower:]')
         SIDADM=${SIDADM}adm
         INSTNUM=$(grep -w SAPSYSTEM /usr/sap/${SID}/SYS/profile/${SID}*DVEB* | awk -F '=' '{print $2}' | tr -d '[:blank:]' | head -1)
@@ -92,6 +95,14 @@ function GetStatus {
         if [ -z "$INSTNUM" ]; then
             INSTNUM=$(grep -w SAPSYSTEM /usr/sap/${SID}/SYS/profile/${SID}*D* | awk -F '=' '{print $2}' | tr -d '[:blank:]' | head -1)
         fi   
+	SAPDBHOST=$(grep -w ^SAPDBHOST /usr/sap/${SID}/SYS/profile/DEFAULT.PFL | awk -F '=' '{print $2}' | tr -d '[:blank:]' | head -1)
+        SAPDBHOST=$(echo $SAPDBHOST | tr '[:upper:]' '[:lower:]')
+        if [ -z "$SAPDBHOST" ]; then #no way to check the host of the target dependency for now other than SAPDBHOST
+            echo "Cannot determine database since no SAPDBHOST definition found in DEFAULT.PFL" >> $ABAPSTAT
+        else
+            echo "Database host as per DEFAULT.PFL is $SAPDBHOST" >> $ABAPSTAT
+        fi
+ 
         test -f $ABAPSTAT && rm -f $ABAPSTAT 
         echo "ABAP SYSTEM Monitoring" > $ABAPSTAT
         su - $SIDADM -c "sapcontrol -nr $INSTNUM -function GetProcessList" >> $ABAPSTAT
