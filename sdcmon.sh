@@ -674,6 +674,7 @@ for i in $SIDS; do
     elif [ "$MODE" = "$PRODUCTIVE_MODE" ]; then
         echo "Setting $MODE mode for $i"
         rm -f ${CLDSCRIPTS}/.${i}_${STATUS_MAINT}
+	rm -f $WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt
         GetStatus
     elif [ -f ${CLDSCRIPTS}/.${i}_${STATUS_MAINT} ]; then
         if egrep -q 'maintenance remotely' "$WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt"; then
