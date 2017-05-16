@@ -269,9 +269,19 @@ function MountAndTransfer {
     echo >> $TRANSLOG
     sleep $(( $(($RANDOM - 1)) % 8 ))
     /usr/bin/recode latin1..dos $OUTFILE
-    /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred -c \
-    "del  $MONPATH\\${clusterName}${SHOWROOM}_${HOSTNAME}_${SID}_*.txt;
-    put $OUTFILE $MONPATH\\$BASEOUT" >> $TRANSLOG 2>&1
+    # if showroom is CDA or CTA then also delete old *.olt file
+    case "$SHOWROOM" in
+        CDA|CTA)
+            /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred -c \
+            "del  $MONPATH\\${clusterName}${SHOWROOM}_${HOSTNAME}_${SID}_*.txt;
+            del  $MONPATH\\${clusterName}${SHOWROOM}_${HOSTNAME}_${SID}_*.olt;
+            put $OUTFILE $MONPATH\\$BASEOUT" >> $TRANSLOG 2>&1
+            ;;
+        *)
+            /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred -c \
+            "del  $MONPATH\\${clusterName}${SHOWROOM}_${HOSTNAME}_${SID}_*.txt;
+            put $OUTFILE $MONPATH\\$BASEOUT" >> $TRANSLOG 2>&1
+    esac
     rc=$?
     if [ "$rc" -ne "0" ]; then
         echo "ERROR: Could not transfer $OUTFILE" | tee -a $TRANSLOG
