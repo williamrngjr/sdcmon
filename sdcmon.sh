@@ -257,6 +257,7 @@ function MountAndTransferCLD41 {
             "del ${HOSTNAME}_${SID}_*.txt;
             del ${HOSTNAME}_${SID}_*.olt; 
             put $OUTFILE ${HOSTNAME}_${SID}_${STATUS}.txt" >> $TRANSLOG 2>&1
+	    ;;
         *)
             /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred2 -c \
             "del ${HOSTNAME}_${SID}_*.txt;
