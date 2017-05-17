@@ -1,5 +1,13 @@
 #!/bin/bash
 
+#May15 requested additions
+# Added : Add handling for spider webs double entry for some linux (delete old olt files when pushing status files)
+#update services file from sharepoint
+# Added : delete serverdown_mode linux, if detected to be serverdown_mode - it will check status GetStatus and delete maint if needed
+# Added : ADD SAPDBHOST information in ABAP STATUS files
+# Added : Add handling for GetStatus function in generating the status file when python script landscapeHostConfiguration.py is not functioning as expected
+
+
 # fetched
 # don't run multiple times
 if pidof -x $0 -o $$; then
@@ -243,9 +251,17 @@ function MountAndTransferCLD41 {
     fi
     echo >> $TRANSLOG
     sleep $(( $(($RANDOM - 1)) % 8 ))
-    /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred2 -c \
-    "del ${HOSTNAME}_${SID}_*.txt;
-    put $OUTFILE ${HOSTNAME}_${SID}_${STATUS}.txt" >> $TRANSLOG 2>&1
+    case "$SHOWROOM" in
+        CDA|CTA)    
+            /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred2 -c \
+            "del ${HOSTNAME}_${SID}_*.txt;
+            del ${HOSTNAME}_${SID}_*.olt; 
+            put $OUTFILE ${HOSTNAME}_${SID}_${STATUS}.txt" >> $TRANSLOG 2>&1
+        *)
+            /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred2 -c \
+            "del ${HOSTNAME}_${SID}_*.txt;
+            put $OUTFILE ${HOSTNAME}_${SID}_${STATUS}.txt" >> $TRANSLOG 2>&1
+    esac
     rc=$?
     if [ "$rc" -ne "0" ]; then
         echo "ERROR: Could not transfer $OUTFILE" | tee -a $TRANSLOG
@@ -683,6 +699,7 @@ for i in $SIDS; do
         echo "Setting $MODE mode for $i"
     elif [ "$MODE" = "$PRODUCTIVE_MODE" ]; then
         echo "Setting $MODE mode for $i"
+	rm -f $MAINTFILE #Added May 17, 2017
         rm -f ${CLDSCRIPTS}/.${i}_${STATUS_MAINT}
 	rm -f $WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt
         GetStatus
@@ -692,7 +709,8 @@ for i in $SIDS; do
         elif egrep -q 'maintenance' "$WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt"; then
             STATUS=$STATUS_MAINT
         else
-            STATUS=$STATUS_SERVERDOWN
+            #STATUS=$STATUS_SERVERDOWN #commented out on May 17, 2017 since when system is set to serverdown_mode and sdcmon detects it is up it should bring status back to productive
+	    GetStatus
         fi
     else
             GetStatus
