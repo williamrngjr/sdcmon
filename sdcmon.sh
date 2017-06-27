@@ -2,11 +2,11 @@
 
 #May15 requested additions
 # Added : Add handling for spider webs double entry for some linux (delete old olt files when pushing status files)
-#update services file from sharepoint
+# Pending : update services file from sharepoint
 # Added : delete serverdown_mode linux, if detected to be serverdown_mode - it will check status GetStatus and delete maint if needed
 # Added : ADD SAPDBHOST information in ABAP STATUS files
 # Added : Add handling for GetStatus function in generating the status file when python script landscapeHostConfiguration.py is not functioning as expected
-
+# Added : help and usage information
 
 # fetched
 # don't run multiple times
@@ -16,9 +16,9 @@ if pidof -x $0 -o $$; then
 fi
 
 function CheckMode {
-    if [ "$MODE"  != "$PRODUCTIVE_MODE" -a "$MODE" != "$REMOTE_MAINTENANCE_MODE" -a "$MODE" != "$MAINTENANCE_MODE" -a "$MODE" != "$SERVERDOWN_MODE" -a "$MODE" != "" ]; then
+    if [ "$MODE"  != "$PRODUCTIVE_MODE" -a "$MODE" != "$REMOTE_MAINTENANCE_MODE" -a "$MODE" != "$MAINTENANCE_MODE" -a "$MODE" != "$SERVERDOWN_MODE" -a "$MODE" != "help" -a "$MODE" != "-help" -a "$MODE" != "--help" -a "$MODE" != "" ]; then
         echo "Unsupported mode $MODE."
-        echo "Usage: $0 [$PRODUCTIVE_MODE | $MAINTENANCE_MODE | $REMOTE_MAINTENANCE_MODE |  $SERVERDOWN_MODE]"
+        echo "Usage: $0 [$PRODUCTIVE_MODE | $MAINTENANCE_MODE | $REMOTE_MAINTENANCE_MODE |  $SERVERDOWN_MODE | --help ]"
         exit 1
     fi
 }
@@ -103,6 +103,10 @@ function GetStatus {
         if [ -z "$INSTNUM" ]; then
             INSTNUM=$(grep -w SAPSYSTEM /usr/sap/${SID}/SYS/profile/${SID}*D* | awk -F '=' '{print $2}' | tr -d '[:blank:]' | head -1)
         fi   
+
+        test -f $ABAPSTAT && rm -f $ABAPSTAT 
+        echo "ABAP SYSTEM Monitoring" > $ABAPSTAT
+
 	SAPDBHOST=$(grep -w ^SAPDBHOST /usr/sap/${SID}/SYS/profile/DEFAULT.PFL | awk -F '=' '{print $2}' | tr -d '[:blank:]' | head -1)
         SAPDBHOST=$(echo $SAPDBHOST | tr '[:upper:]' '[:lower:]')
         if [ -z "$SAPDBHOST" ]; then #no way to check the host of the target dependency for now other than SAPDBHOST
@@ -111,8 +115,6 @@ function GetStatus {
             echo "Database host as per DEFAULT.PFL is $SAPDBHOST" >> $ABAPSTAT
         fi
  
-        test -f $ABAPSTAT && rm -f $ABAPSTAT 
-        echo "ABAP SYSTEM Monitoring" > $ABAPSTAT
         su - $SIDADM -c "sapcontrol -nr $INSTNUM -function GetProcessList" >> $ABAPSTAT
         unset COUNT
         COUNT=$(grep -i "RED"  $ABAPSTAT | wc -l)
@@ -257,7 +259,7 @@ function MountAndTransferCLD41 {
             "del ${HOSTNAME}_${SID}_*.txt;
             del ${HOSTNAME}_${SID}_*.olt; 
             put $OUTFILE ${HOSTNAME}_${SID}_${STATUS}.txt" >> $TRANSLOG 2>&1
-	    ;;
+        ;;
         *)
             /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred2 -c \
             "del ${HOSTNAME}_${SID}_*.txt;
@@ -608,6 +610,28 @@ SAPMZDIR='/opt/mz'
 
 CheckMode
 
+    if [ "$MODE" == "--help" -o "$MODE" == "help" -o "$MODE" == "-help" ]; then
+            echo "USAGE : sdcmon.sh [<MODE>] [<SID>]"
+            echo ""
+            echo "Both MODE and SID are optional parameters for sdcmon.sh"
+            echo ""
+            echo "Supported MODES ==="
+            echo "1. blank : will not alter the current mode of the SIDs in the server.. SID in maintenance will remain in maintenance and SID in productive mode will remain in productive mode"
+            echo "2. productive : will set the MODE of the system/s to productive"
+            echo "3. maintenance : will set the MODE of the system/s to maintenance asking asking for interactive user input for justification and user responsible for setting system to maintenance"
+            echo "4. remote_maintenance : will set the MODE to remote_maintenance, no need for user to interactively input any justification. this is useful for when sdcmon is called from Windows" echo "scripts. status file will then show <SID> is set in maintenance remotely. Please check Abap monitor for maintenance info and shows a dark blue icon in sdcmon"
+            echo "5. serverdown_mode : this will set the MODE to serverdown_mode and status file will show the generic string <SID> has been stopped and show as light blue"
+            echo ""
+            echo "supported SID ==="
+            echo "all SID that are running in the server is supported "
+            echo ""
+            echo "example commands ==="
+            echo "sdcmon.sh maintenance ECI"
+            echo "sdcmon.sh productive EC5"
+            echo "sdcmon.sh maintenance "
+            echo "sdcmon.sh productive"
+        exit 0
+    fi
 # Determine environment and set more global vars
 WhereAreWe
 UpdateCred2
@@ -683,7 +707,7 @@ for i in $SIDS; do
         STATUS=$STATUS_MAINT
         STATFILE="$CLDSCRIPTS/.${i}_${STATUS_MAINT}"
 	test -f $MAINTFILE || touch $MAINTFILE
-  #      [ -f $STATFILE ] || echo "$MAINT_USER - activity is $MAINT_REASON " > $STATFILE 
+   #     [ -f $STATFILE ] || echo "$MAINT_USER - activity is $MAINT_REASON " > $STATFILE 
         if egrep -q 'maintenance' "$WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt"; then
             echo "$i system is already set to maintenance. Cannot set it again to maintenance to preserve timestamp when it started to be on maintenance. Pls set it to down or productive before setting it to maintenance."
         else
@@ -703,6 +727,7 @@ for i in $SIDS; do
 	rm -f $MAINTFILE #Added May 17, 2017
         rm -f ${CLDSCRIPTS}/.${i}_${STATUS_MAINT}
 	rm -f $WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt
+        rm -f $WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_NOT_OKAY}.txt
         GetStatus
     elif [ -f ${CLDSCRIPTS}/.${i}_${STATUS_MAINT} ]; then
         if egrep -q 'maintenance remotely' "$WORK/${clusterName}${SHOWROOM}_${HOSTNAME}_${i}_${STATUS_MAINT}.txt"; then
@@ -802,6 +827,3 @@ for i in $SIDS; do
 done
 CheckForEmergencyUpdate
 CheckForUpdate
-
-
-
