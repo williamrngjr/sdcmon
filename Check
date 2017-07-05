@@ -310,6 +310,50 @@ function MountAndTransfer {
     fi
 }
 
+function CheckForSDCStartScriptUpdate {
+    local MONPATH="TDC_nonAbap\\SDC_startscript\\Linux"
+    local SMBSHARE="//$MONSRV/sdc"
+    local TESTFILE="update.yes"
+    local SSCRIPT="SequencialStopStartLogic"
+    local LDIR="$CLDSCRIPTS/sdcstartlinux_home"
+    local LWORK="$CLDSCRIPTS/sdcstartlinux_home/work"
+    local LTRANSLOG="$LWORK/trans.log"
+    local rc
+    local CURRDATE="$(date +"%d")_$(date +"%m")_$(date +"%y")_update.txt"
+    local UPDATEOUT="$LWORK/$CURRDATE"
+    if [ -d "$LDIR" ]; then
+        echo "$(date) : CheckForSDCStartScriptUpdate" >> $LTRANSLOG 2>&1
+        find  $LWORK/*_update.txt -maxdepth 2 -type f -mtime +3 | xargs rm -rf
+        #update only at 6 o'clock
+        if  [ $(date +"%H") = "06" ]; then
+            #update only if today not already done
+            if [ ! -f $UPDATEOUT ]
+                then
+                /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred -c \
+                "get  $MONPATH\\$TESTFILE $LWORK/$TESTFILE" >> $LTRANSLOG 2>&1
+                rc=$?
+                if [ "$rc" -eq "0" ]; then
+                    rm -f $LWORK/$TESTFILE
+                    /usr/bin/smbclient $SMBSHARE -N -A /root/.sdcmoncred -c \
+                    "get  $MONPATH\\$SSCRIPT $LWORK/$SSCRIPT.new" >> $LTRANSLOG 2>&1
+                    rc=$?
+                    if [ "$rc" -eq "0" ]; then
+                        mv -f $LDIR/$SSCRIPT $LDIR/$SSCRIPT.bak
+                        chmod 750 $LWORK/$SSCRIPT.new
+                        mv -f $LWORK/$SSCRIPT.new $LDIR/$SSCRIPT
+                        echo "Updated $LDIR/$SSCRIPT" | tee -a $LTRANSLOG
+                        echo "$date" > $UPDATEOUT
+                    else
+                        echo "no SDCStartLinuxScripts installed in this server. Nothing to update"
+                    fi
+                fi
+            fi
+        fi
+    else
+        echo "$(date) : No existing SDC Start Scripts installed. Will not proceed with getting the start script from central repository"
+    fi
+}
+
 function CheckForUpdate {
     local MONPATH="TDC_nonAbap\\SDC_startscript\\Linux"
     local SMBSHARE="//$MONSRV/sdc"
@@ -825,5 +869,6 @@ for i in $SIDS; do
     MountAndTransfer
     MountAndTransferCLD41
 done
+CheckForSDCStartScriptUpdate
 CheckForEmergencyUpdate
 CheckForUpdate
